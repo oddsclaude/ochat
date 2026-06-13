@@ -414,33 +414,41 @@ class OchatTUI:
         oy  = (self.h - oh) // 2
         ox  = (self.w - ow) // 2
 
-        while True:
-            self.scr.erase()
-            self.draw_title()
-            try:
-                win = curses.newwin(oh, ow, oy, ox)
-                win.box()
-                win.addstr(0, 2, " select model ", curses.A_BOLD)
-                for i, m in enumerate(self.models):
-                    row = i + 2
-                    if row >= oh - 1:
-                        break
-                    label = m[:ow - 6]
-                    if i == idx:
-                        win.addstr(row, 2, f"▶ {label}", curses.color_pair(CP_ASST) | curses.A_BOLD)
-                    else:
-                        win.addstr(row, 2, f"  {label}", curses.A_DIM)
-                footer = " ↑↓ select  enter confirm  esc cancel "
-                win.addstr(oh - 1, max(0, (ow - len(footer)) // 2), footer[:ow - 2])
-                win.refresh()
-            except curses.error:
-                pass
+        # use blocking getch for the picker (disable the 50ms timeout)
+        self.scr.nodelay(False)
+        try:
+            while True:
+                self.scr.erase()
+                self.draw_title()
+                try:
+                    win = curses.newwin(oh, ow, oy, ox)
+                    win.box()
+                    win.addstr(0, 2, " select model ", curses.A_BOLD)
+                    for i, m in enumerate(self.models):
+                        row = i + 2
+                        if row >= oh - 1:
+                            break
+                        label = m[:ow - 6]
+                        if i == idx:
+                            # selected: green + bold + arrow
+                            win.addstr(row, 2, f"▶ {label}", curses.color_pair(CP_ASST) | curses.A_BOLD)
+                        else:
+                            # unselected: normal text (not dim — dim is invisible on dark terminals)
+                            win.addstr(row, 2, f"  {label}")
+                    footer = " ↑↓ select  enter confirm  esc cancel "
+                    win.addstr(oh - 1, max(0, (ow - len(footer)) // 2), footer[:ow - 2])
+                    win.refresh()
+                except curses.error:
+                    pass
 
-            key = self.scr.getch()
-            if   key == curses.KEY_UP   and idx > 0:                    idx -= 1
-            elif key == curses.KEY_DOWN and idx < len(self.models) - 1: idx += 1
-            elif key in (10, 13):   return self.models[idx]
-            elif key == 27:         return None
+                key = self.scr.getch()
+                if   key == curses.KEY_UP   and idx > 0:                    idx -= 1
+                elif key == curses.KEY_DOWN and idx < len(self.models) - 1: idx += 1
+                elif key in (10, 13):   return self.models[idx]
+                elif key == 27:         return None
+        finally:
+            # restore non-blocking mode for the main loop
+            self.scr.nodelay(True)
 
     # ── stream processing ─────────────────────────────────────────────────────────────────────
 
